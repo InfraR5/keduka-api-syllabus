@@ -3,6 +3,10 @@ from .schemas import CourseRequest, ProgramResponse, CreateSectionRequest, Delet
 from .moodle_client import call_moodle, create_moodle_section, delete_course_sections
 from .ai_service import generate_syllabus_ai
 
+
+print(f"DEBUG: MOODLE_URL={MOODLE_URL}")
+print(f"DEBUG: MOODLE_TOKEN={MOODLE_TOKEN[:5]}...")
+
 app = FastAPI(
     title="Course Program API",
     docs_url="/api/course/program/docs",
