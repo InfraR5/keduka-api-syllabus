@@ -13,3 +13,10 @@ class ProgramResponse(BaseModel):
     course: dict
     competencies: List[Competency]
     programa: List[str]
+
+class CreateSectionRequest(BaseModel):
+    course_id: int
+    name: str
+
+class DeleteSectionRequest(BaseModel):
+    section_ids: List[int]
