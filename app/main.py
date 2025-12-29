@@ -157,3 +157,7 @@ def apply_syllabus_structure(course_id: int, programa: list[str]):
 
     except Exception as e:
         print(f"[AI SERVICE] Failed to update course structure: {e}")
+
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
