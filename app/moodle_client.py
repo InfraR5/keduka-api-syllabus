@@ -131,3 +131,79 @@ def create_moodle_section(course_id: int, section_name: str):
     # Note: Requires MOODLE_TOKEN to be set to the sectionmanager service token
     # (Checking if current token is compatible happens at runtime)
     return call_moodle("local_sectionmanager_create_sections", params)
+
+def create_competency_framework(idnumber: str, shortname: str, description: str):
+    """
+    Creates a new competency framework.
+    """
+    params = {
+        "competencyframework": {
+            "idnumber": idnumber,
+            "shortname": shortname,
+            "description": description,
+            "descriptionformat": 1, # HTML
+            "visible": 1,
+            "scaleid": 1 # Standard scale (Change if needed)
+        }
+    }
+    return call_moodle("core_competency_create_competency_framework", params)
+
+def create_competency(framework_id: int, shortname: str, description: str, idnumber: str):
+    """
+    Creates a competency within a framework.
+    """
+    params = {
+        "competency": {
+            "shortname": shortname,
+            "description": description,
+            "descriptionformat": 1,
+            "idnumber": idnumber,
+            "competencyframeworkid": framework_id
+        }
+    }
+    return call_moodle("core_competency_create_competency", params)
+
+def create_course_category(name: str):
+    """
+    Creates a new course category. Returns the category ID.
+    Simple implementation; creates at root.
+    """
+    params = {
+        "categories[0][name]": name,
+        "categories[0][parent]": 0,
+        "categories[0][descriptionformat]": 1
+    }
+    # Response is a list of created categories
+    return call_moodle("core_course_create_categories", params)
+
+def create_course(fullname: str, shortname: str, category_id: int, summary: str):
+    """
+    Creates a new course.
+    """
+    params = {
+        "courses[0][fullname]": fullname,
+        "courses[0][shortname]": shortname, # Must be unique
+        "courses[0][categoryid]": category_id,
+        "courses[0][summary]": summary,
+        "courses[0][summaryformat]": 1,
+        "courses[0][format]": "topics",
+        "courses[0][numsections]": 0 
+    }
+    return call_moodle("core_course_create_courses", params)
+
+def update_section_summary(section_id: int, summary: str):
+    """
+    Updates the summary of a section. 
+    Uses core_course_update_sections (Moodle 4.x).
+    """
+    # Note: 'core_course_edit_section' is deprecated/complex, 
+    # but 'core_course_update_sections' is the standard way to update data.
+    # However, depending on Moodle version, checking availability.
+    # If not available, we might need a workaround or just skip summary.
+    # Trying `core_course_edit_section` as it handles summary updates.
+    params = {
+        "id": section_id,
+        "summary": summary,
+        "summaryformat": 1
+    }
+    return call_moodle("core_course_edit_section", params)
