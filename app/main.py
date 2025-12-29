@@ -9,7 +9,7 @@ app = FastAPI(
     openapi_url="/api/course/program/openapi.json"
 )
 
-@app.post("/api/sections/create")
+@app.post("/api/course/program/sections/create")
 def create_section_endpoint(data: CreateSectionRequest):
     try:
         result = create_moodle_section(data.course_id, data.name)
@@ -17,7 +17,7 @@ def create_section_endpoint(data: CreateSectionRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/api/sections/delete")
+@app.post("/api/course/program/sections/delete")
 def delete_sections_endpoint(data: DeleteSectionRequest):
     try:
         # Assuming delete_course_sections returns something useful or throws
