@@ -21,6 +21,10 @@ class CreateSectionRequest(BaseModel):
 class DeleteSectionRequest(BaseModel):
     section_ids: List[int]
 
+class CreateBulkSectionsRequest(BaseModel):
+    course_id: int
+    names: List[str]
+
 # --- Agent Models ---
 
 class AgentInput(BaseModel):

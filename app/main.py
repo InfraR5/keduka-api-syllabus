@@ -1,8 +1,9 @@
-from fastapi import FastAPI, HTTPException, Header
+from fastapi import FastAPI, HTTPException, Header, Depends
 from typing import Optional
-from .schemas import CourseRequest, ProgramResponse, CreateSectionRequest, DeleteSectionRequest
-from .moodle_client import call_moodle, create_moodle_section, delete_course_sections
+from .schemas import CourseRequest, ProgramResponse, CreateSectionRequest, DeleteSectionRequest, CreateBulkSectionsRequest
+from .moodle_client import call_moodle, create_moodle_section, delete_course_sections, update_section
 from .ai_service import generate_syllabus_ai
+from .middleware.execution_guard import execution_guard
 
 app = FastAPI(
     title="Course Program API",
@@ -14,7 +15,45 @@ app = FastAPI(
 def create_section_endpoint(data: CreateSectionRequest, x_moodle_token: Optional[str] = Header(None, alias="X-Moodle-Token")):
     try:
         result = create_moodle_section(data.course_id, data.name, token=x_moodle_token)
+        # Ensure it is visible - Moodle sometimes defaults to hidden for new sections?
+        # result is likely a list: [{"id": 123, "name": "..."}]
+        if isinstance(result, list) and len(result) > 0 and "id" in result[0]:
+             sec_id = result[0]["id"]
+             # Force show
+             update_section(sec_id, data.name, visible=1, token=x_moodle_token)
+
         return {"status": "success", "data": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/course/program/sections/create/batch")
+def create_bulk_sections_endpoint(data: CreateBulkSectionsRequest, x_moodle_token: Optional[str] = Header(None, alias="X-Moodle-Token")):
+    results = []
+    errors = []
+    try:
+        print(f"[AI SERVICE] Bulk creating {len(data.names)} sections for course {data.course_id}")
+        for name in data.names:
+            try:
+                # 1. Create
+                res = create_moodle_section(data.course_id, name, token=x_moodle_token)
+                
+                # 2. Force Visible
+                if isinstance(res, list) and len(res) > 0 and "id" in res[0]:
+                    sec_id = res[0]["id"]
+                    update_section(sec_id, name, visible=1, token=x_moodle_token)
+                    results.append({"name": name, "id": sec_id, "status": "created"})
+                else:
+                    results.append({"name": name, "status": "error", "detail": "No ID returned"})
+            except Exception as inner_e:
+                print(f"[AI SERVICE] Error creating section '{name}': {inner_e}")
+                errors.append({"name": name, "error": str(inner_e)})
+                
+        return {
+            "status": "success", 
+            "created_count": len(results),
+            "data": results,
+            "errors": errors
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -27,8 +66,8 @@ def delete_sections_endpoint(data: DeleteSectionRequest, x_moodle_token: Optiona
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/api/course/programa", response_model=ProgramResponse)
-def gerar_programa(data: CourseRequest, x_moodle_token: Optional[str] = Header(None, alias="X-Moodle-Token")):
+@app.post("/api/course/programa", response_model=ProgramResponse, dependencies=[Depends(execution_guard)])
+def gerar_programa(data: CourseRequest, x_moodle_token: Optional[str] = Header(None, alias="X-Moodle-Token"), x_execution_id: Optional[str] = Header(None, alias="X-Execution-ID")):
 
     # 1. Dados do curso
     try:
@@ -143,7 +182,15 @@ def apply_syllabus_structure(course_id: int, programa: list[str], token: str = N
             for i in range(current_count, len(programa)):
                 topic_name = programa[i]
                 print(f"[AI SERVICE] Creating new section: '{topic_name}'")
-                create_moodle_section(course_id, topic_name, token=token)
+                topic_name = programa[i]
+                print(f"[AI SERVICE] Creating new section: '{topic_name}'")
+                created = create_moodle_section(course_id, topic_name, token=token)
+                
+                # Force visibility
+                if isinstance(created, list) and len(created) > 0 and "id" in created[0]:
+                    new_id = created[0]["id"]
+                    print(f"[AI SERVICE] Ensuring Section {new_id} is visible...")
+                    update_section(new_id, topic_name, visible=1, token=token)
 
         # 3. Delete Excess Sections (if needed)
         elif current_count > len(programa):

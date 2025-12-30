@@ -72,7 +72,7 @@ def update_section(section_id: int, name: str, summary: str = "", visible: int =
         "action": "show" if visible else "hide", # Conforming to proper action signature
         # "name": name, # Not supported by edit_section
     }
-    # call_moodle("core_course_edit_section", params, token) # Disabled for now as we focus on renaming
+    call_moodle("core_course_edit_section", params, token)
     pass
 
 def update_section_name(section_id: int, new_name: str, token: str = None):

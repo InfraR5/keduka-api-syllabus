@@ -3,7 +3,6 @@ uvicorn>=0.27.0
 requests>=2.31.0
 pydantic>=2.5.0
 pydantic-settings
-langchain>=0.1.0
-langchain-openai>=0.1.0
-requests>=2.32.3 # Cache Bust Rev 17.2
 python-dotenv>=1.0.0
+langchain>=0.1.0
+langchain-core>=0.1.0
