@@ -1,9 +1,12 @@
 import requests
 from .config import MOODLE_URL, MOODLE_TOKEN
 
-def call_moodle(function, params):
+def call_moodle(function, params, token: str = None):
+    # Use provided token, or fallback to config
+    active_token = token if token else MOODLE_TOKEN
+
     payload = {
-        "wstoken": MOODLE_TOKEN,
+        "wstoken": active_token,
         "wsfunction": function,
         "moodlewsrestformat": "json",
     }
@@ -38,7 +41,7 @@ def call_moodle(function, params):
         # Re-raise to be handled by FastAPI or crash safely
         raise e
 
-def update_course(course_id: int, summary: str):
+def update_course(course_id: int, summary: str, token: str = None):
     """
     Updates the course summary using core_course_update_courses.
     """
@@ -47,18 +50,18 @@ def update_course(course_id: int, summary: str):
         "courses[0][summary]": summary,
         "courses[0][summaryformat]": 1  # HTML
     }
-    return call_moodle("core_course_update_courses", params)
+    return call_moodle("core_course_update_courses", params, token)
 
-def get_course_contents(course_id: int):
+def get_course_contents(course_id: int, token: str = None):
     """
     Get course sections and modules using core_course_get_contents.
     """
     params = {
         "courseid": course_id
     }
-    return call_moodle("core_course_get_contents", params)
+    return call_moodle("core_course_get_contents", params, token)
 
-def update_section(section_id: int, name: str, summary: str = "", visible: int = 1):
+def update_section(section_id: int, name: str, summary: str = "", visible: int = 1, token: str = None):
     """
     Update a course section properties (visibility, etc).
     NOTE: core_course_edit_section DOES NOT SUPPORT RENAMING in Moodle 4.x.
@@ -69,10 +72,10 @@ def update_section(section_id: int, name: str, summary: str = "", visible: int =
         "action": "show" if visible else "hide", # Conforming to proper action signature
         # "name": name, # Not supported by edit_section
     }
-    # call_moodle("core_course_edit_section", params) # Disabled for now as we focus on renaming
+    # call_moodle("core_course_edit_section", params, token) # Disabled for now as we focus on renaming
     pass
 
-def update_section_name(section_id: int, new_name: str):
+def update_section_name(section_id: int, new_name: str, token: str = None):
     """
     Renames a section using core_update_inplace_editable.
     Assumes format_topics.
@@ -83,9 +86,9 @@ def update_section_name(section_id: int, new_name: str):
         "itemid": section_id,
         "value": new_name
     }
-    return call_moodle("core_update_inplace_editable", params)
+    return call_moodle("core_update_inplace_editable", params, token)
 
-def update_course_numsections(course_id: int, num_sections: int):
+def update_course_numsections(course_id: int, num_sections: int, token: str = None):
     """
     Updates the number of sections in a course using core_course_update_courses.
     This works by setting the 'numsections' option for format_topics.
@@ -97,9 +100,9 @@ def update_course_numsections(course_id: int, num_sections: int):
         "courses[0][courseformatoptions][0][name]": "numsections",
         "courses[0][courseformatoptions][0][value]": num_sections
     }
-    return call_moodle("core_course_update_courses", params)
+    return call_moodle("core_course_update_courses", params, token)
 
-def create_course_sections(course_ids: list[int]):
+def create_course_sections(course_ids: list[int], token: str = None):
     """
     Creates new sections using core_course_create_sections.
     Pass a list of course IDs. One section is created for each ID in the list.
@@ -108,18 +111,18 @@ def create_course_sections(course_ids: list[int]):
     params = {}
     for i, cid in enumerate(course_ids):
         params[f"courseids[{i}]"] = cid
-    return call_moodle("core_course_create_sections", params)
+    return call_moodle("core_course_create_sections", params, token)
 
-def delete_course_sections(section_ids: list[int]):
+def delete_course_sections(section_ids: list[int], token: str = None):
     """
     Deletes sections using core_course_delete_sections.
     """
     params = {}
     for i, sid in enumerate(section_ids):
         params[f"ids[{i}]"] = sid
-    return call_moodle("core_course_delete_sections", params)
+    return call_moodle("core_course_delete_sections", params, token)
 
-def create_moodle_section(course_id: int, section_name: str):
+def create_moodle_section(course_id: int, section_name: str, token: str = None):
     """
     Creates a new section using the custom local_sectionmanager plugin.
     This replaces the need for update_course_numsections or core_update_inplace_editable hacks.
@@ -130,9 +133,9 @@ def create_moodle_section(course_id: int, section_name: str):
     }
     # Note: Requires MOODLE_TOKEN to be set to the sectionmanager service token
     # (Checking if current token is compatible happens at runtime)
-    return call_moodle("local_sectionmanager_create_sections", params)
+    return call_moodle("local_sectionmanager_create_sections", params, token)
 
-def create_competency_framework(idnumber: str, shortname: str, description: str):
+def create_competency_framework(idnumber: str, shortname: str, description: str, token: str = None):
     """
     Creates a new competency framework.
     """
@@ -146,9 +149,9 @@ def create_competency_framework(idnumber: str, shortname: str, description: str)
             "scaleid": 1 # Standard scale (Change if needed)
         }
     }
-    return call_moodle("core_competency_create_competency_framework", params)
+    return call_moodle("core_competency_create_competency_framework", params, token)
 
-def create_competency(framework_id: int, shortname: str, description: str, idnumber: str):
+def create_competency(framework_id: int, shortname: str, description: str, idnumber: str, token: str = None):
     """
     Creates a competency within a framework.
     """
@@ -161,9 +164,9 @@ def create_competency(framework_id: int, shortname: str, description: str, idnum
             "competencyframeworkid": framework_id
         }
     }
-    return call_moodle("core_competency_create_competency", params)
+    return call_moodle("core_competency_create_competency", params, token)
 
-def create_course_category(name: str):
+def create_course_category(name: str, token: str = None):
     """
     Creates a new course category. Returns the category ID.
     Simple implementation; creates at root.
@@ -174,9 +177,9 @@ def create_course_category(name: str):
         "categories[0][descriptionformat]": 1
     }
     # Response is a list of created categories
-    return call_moodle("core_course_create_categories", params)
+    return call_moodle("core_course_create_categories", params, token)
 
-def create_course(fullname: str, shortname: str, category_id: int, summary: str):
+def create_course(fullname: str, shortname: str, category_id: int, summary: str, token: str = None):
     """
     Creates a new course.
     """
@@ -189,9 +192,9 @@ def create_course(fullname: str, shortname: str, category_id: int, summary: str)
         "courses[0][format]": "topics",
         "courses[0][numsections]": 0 
     }
-    return call_moodle("core_course_create_courses", params)
+    return call_moodle("core_course_create_courses", params, token)
 
-def update_section_summary(section_id: int, summary: str):
+def update_section_summary(section_id: int, summary: str, token: str = None):
     """
     Updates the summary of a section. 
     Uses core_course_update_sections (Moodle 4.x).
@@ -206,4 +209,4 @@ def update_section_summary(section_id: int, summary: str):
         "summary": summary,
         "summaryformat": 1
     }
-    return call_moodle("core_course_edit_section", params)
+    return call_moodle("core_course_edit_section", params, token)

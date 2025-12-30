@@ -1,4 +1,5 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header
+from typing import Optional
 from .schemas import CourseRequest, ProgramResponse, CreateSectionRequest, DeleteSectionRequest
 from .moodle_client import call_moodle, create_moodle_section, delete_course_sections
 from .ai_service import generate_syllabus_ai
@@ -10,31 +11,32 @@ app = FastAPI(
 )
 
 @app.post("/api/course/program/sections/create")
-def create_section_endpoint(data: CreateSectionRequest):
+def create_section_endpoint(data: CreateSectionRequest, x_moodle_token: Optional[str] = Header(None, alias="X-Moodle-Token")):
     try:
-        result = create_moodle_section(data.course_id, data.name)
+        result = create_moodle_section(data.course_id, data.name, token=x_moodle_token)
         return {"status": "success", "data": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/course/program/sections/delete")
-def delete_sections_endpoint(data: DeleteSectionRequest):
+def delete_sections_endpoint(data: DeleteSectionRequest, x_moodle_token: Optional[str] = Header(None, alias="X-Moodle-Token")):
     try:
         # Assuming delete_course_sections returns something useful or throws
-        result = delete_course_sections(data.section_ids)
+        result = delete_course_sections(data.section_ids, token=x_moodle_token)
         return {"status": "success", "data": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/course/programa", response_model=ProgramResponse)
-def gerar_programa(data: CourseRequest):
+def gerar_programa(data: CourseRequest, x_moodle_token: Optional[str] = Header(None, alias="X-Moodle-Token")):
 
     # 1. Dados do curso
     try:
         # 1. Dados do curso
         course = call_moodle(
             "core_course_get_courses",
-            {"options[ids][0]": data.course_id}
+            {"options[ids][0]": data.course_id},
+            token=x_moodle_token
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -53,7 +55,8 @@ def gerar_programa(data: CourseRequest):
     # 2. Competências do curso
     competencies = call_moodle(
         "core_competency_list_course_competencies",
-        {"id": data.course_id}
+        {"id": data.course_id},
+        token=x_moodle_token
     )
 
     # Formatting competencies for response
@@ -92,7 +95,7 @@ def gerar_programa(data: CourseRequest):
             ]
 
     # 4. Gravar no Moodle (Persistence) via Sections
-    apply_syllabus_structure(data.course_id, programa)
+    apply_syllabus_structure(data.course_id, programa, token=x_moodle_token)
 
     return {
         "course": {
@@ -104,7 +107,7 @@ def gerar_programa(data: CourseRequest):
         "programa": programa
     }
 
-def apply_syllabus_structure(course_id: int, programa: list[str]):
+def apply_syllabus_structure(course_id: int, programa: list[str], token: str = None):
     """
     Updates course sections to match the generated syllabus using local_sectionmanager.
     REV 18 - ROBUST PLUGIN IMPLEMENTATION
@@ -114,7 +117,7 @@ def apply_syllabus_structure(course_id: int, programa: list[str]):
     try:
         print("[AI SERVICE] VERSION: REV 18 - LOCAL PLUGIN POWERED")
         print(f"[AI SERVICE] Fetching sections for course {course_id}...")
-        sections = get_course_contents(course_id)
+        sections = get_course_contents(course_id, token=token)
         
         # Filter only real sections (exclude Section 0 'General')
         real_sections = [s for s in sections if s.get("section", 0) != 0]
@@ -130,7 +133,7 @@ def apply_syllabus_structure(course_id: int, programa: list[str]):
             topic = programa[i]
             sec_id = real_sections[i]["id"]
             print(f"[AI SERVICE] Updating Section {sec_id} -> {topic}")
-            update_section_name(sec_id, topic)
+            update_section_name(sec_id, topic, token=token)
 
         # 2. Create New Sections (if needed)
         if len(programa) > current_count:
@@ -140,7 +143,7 @@ def apply_syllabus_structure(course_id: int, programa: list[str]):
             for i in range(current_count, len(programa)):
                 topic_name = programa[i]
                 print(f"[AI SERVICE] Creating new section: '{topic_name}'")
-                create_moodle_section(course_id, topic_name)
+                create_moodle_section(course_id, topic_name, token=token)
 
         # 3. Delete Excess Sections (if needed)
         elif current_count > len(programa):
@@ -151,7 +154,7 @@ def apply_syllabus_structure(course_id: int, programa: list[str]):
             ids_to_delete = [s["id"] for s in to_delete]
             
             print(f"[AI SERVICE] Deleting Section IDs: {ids_to_delete}")
-            delete_course_sections(ids_to_delete)
+            delete_course_sections(ids_to_delete, token=token)
 
         print("[AI SERVICE] Course structure updated successfully (Plugin Hybrid Strategy).")
 
