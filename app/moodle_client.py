@@ -1,5 +1,5 @@
 import requests
-from .config import MOODLE_URL, MOODLE_TOKEN
+from .config import MOODLE_URL, MOODLE_TOKEN, MOODLE_HOST
 
 def call_moodle(function, params, token: str = None):
     # Use provided token, or fallback to config
@@ -19,7 +19,7 @@ def call_moodle(function, params, token: str = None):
 
     # Force Host header to bypass Cloudflare/IP access issues and match VirtualHost
     headers = {
-        "Host": "moodle.r5projetos.com.br",
+        "Host": MOODLE_HOST,
         "User-Agent": "MoodleMobile" # Also match the mobile app UA just in case
     }
     
