@@ -1,12 +1,16 @@
 #!/bin/bash
-set -e
+# Proxy to Standard Pipeline (Flow 67)
+# Service: md-api-secao
+# Cluster: keduka-cluster
+# Repo: md-api-secao
 
-# Login to ECR
-aws ecr get-login-password --region us-east-1 --profile r5-sso | docker login --username AWS --password-stdin 675705320947.dkr.ecr.us-east-1.amazonaws.com
+SCRIPT_DIR=$(dirname "$0")
+# Resolve absolute path to pipeline script
+PIPELINE_SCRIPT="$SCRIPT_DIR/../.agent/pipelines/deploy_microservice.sh"
 
-# Build and Push (AMD64 for Fargate)
-docker build --platform linux/amd64 -t md-api-secao .
-docker tag md-api-secao:latest 675705320947.dkr.ecr.us-east-1.amazonaws.com/md-api-secao:latest
-docker push 675705320947.dkr.ecr.us-east-1.amazonaws.com/md-api-secao:latest
+if [ ! -f "$PIPELINE_SCRIPT" ]; then
+    echo "❌ Pipeline script not found at $PIPELINE_SCRIPT"
+    exit 1
+fi
 
-echo "Deployment image (Section API) pushed successfully."
+"$PIPELINE_SCRIPT" "md-api-secao-service" "keduka-cluster" "md-api-secao" "$SCRIPT_DIR"
