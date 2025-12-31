@@ -13,4 +13,5 @@ if [ ! -f "$PIPELINE_SCRIPT" ]; then
     exit 1
 fi
 
+export DOCKER_DEFAULT_PLATFORM=linux/amd64
 "$PIPELINE_SCRIPT" "md-api-secao-service" "keduka-cluster" "md-api-secao" "$SCRIPT_DIR"
