@@ -23,9 +23,9 @@ def call_moodle(function, params, token: str = None):
         "User-Agent": "MoodleMobile" # Also match the mobile app UA just in case
     }
     
-    # Internal routing via IP requires disabling SSL verification (Certificate matches domain, not IP)
+    # Public routing via HTTPS requires enabled SSL verification
     try:
-        r = requests.post(MOODLE_URL, data=payload, headers=headers, timeout=20, verify=False)
+        r = requests.post(MOODLE_URL, data=payload, headers=headers, timeout=20)
         r.raise_for_status()
         data = r.json()
         
