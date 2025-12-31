@@ -5,9 +5,15 @@ from .moodle_client import call_moodle, create_moodle_section, delete_course_sec
 from .ai_service import generate_syllabus_ai
 from .middleware.execution_guard import execution_guard
 
+from fastapi.responses import RedirectResponse
+
 app = FastAPI(
     title="Course Program API"
 )
+
+@app.get("/", include_in_schema=False)
+async def root():
+    return RedirectResponse(url="/docs")
 
 @app.post("/api/course/program/sections/create")
 def create_section_endpoint(data: CreateSectionRequest, x_moodle_token: Optional[str] = Header(None, alias="X-Moodle-Token")):
