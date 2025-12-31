@@ -6,9 +6,7 @@ from .ai_service import generate_syllabus_ai
 from .middleware.execution_guard import execution_guard
 
 app = FastAPI(
-    title="Course Program API",
-    docs_url="/api/course/program/docs",
-    openapi_url="/api/course/program/openapi.json"
+    title="Course Program API"
 )
 
 @app.post("/api/course/program/sections/create")
