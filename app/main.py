@@ -215,3 +215,49 @@ def apply_syllabus_structure(course_id: int, programa: list[str], token: str = N
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
+
+@app.get("/debug/connectivity")
+def debug_connectivity():
+    import requests
+    from .config import MOODLE_URL, MOODLE_HOST
+    
+    results = {
+        "config": {
+            "MOODLE_URL": MOODLE_URL,
+            "MOODLE_HOST": MOODLE_HOST
+        },
+        "tests": []
+    }
+    
+    # Test 1: Moodle URL (POST because it is WS)
+    try:
+        headers = {"Host": MOODLE_HOST}
+        # Just check if we can reach it. WS usually returns error on GET or empty POST without params, but 200 OK.
+        r = requests.get(MOODLE_URL, headers=headers, timeout=10)
+        results["tests"].append({
+            "target": "MOODLE_URL (GET)",
+            "status": r.status_code,
+            "url": r.url,
+            "reason": r.reason,
+            "elapsed": r.elapsed.total_seconds()
+        })
+    except Exception as e:
+        results["tests"].append({
+            "target": "MOODLE_URL",
+            "error": str(e)
+        })
+
+    # Test 2: Google (Internet Access)
+    try:
+        r = requests.get("https://google.com", timeout=5)
+        results["tests"].append({
+            "target": "Internet (Google)",
+            "status": r.status_code
+        })
+    except Exception as e:
+        results["tests"].append({
+            "target": "Internet",
+            "error": str(e)
+        })
+
+    return results
