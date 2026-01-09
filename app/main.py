@@ -117,7 +117,12 @@ def gerar_programa(data: CourseRequest, x_moodle_token: Optional[str] = Header(N
     programa = generate_syllabus_ai(
         course_name=course_data.get("fullname", "Curso sem nome"),
         course_desc=course_data.get("summary", ""),
-        competencies=formatted_competencies
+        competencies=formatted_competencies,
+        system_prompt=data.system_prompt,
+        temperature=data.temperature,
+        top_p=data.top_p,
+        frequency_penalty=data.frequency_penalty,
+        presence_penalty=data.presence_penalty
     )
 
     # fallback se a IA falhar ou retornar vazio

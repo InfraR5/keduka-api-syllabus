@@ -10,14 +10,19 @@ import json
 class SyllabusOutput(BaseModel):
     topics: List[str] = Field(description="List of syllabus topics/modules")
 
-def generate_syllabus_ai(course_name: str, course_desc: str, competencies: list[dict]) -> list[str]:
+def generate_syllabus_ai(course_name: str, course_desc: str, competencies: list[dict], system_prompt: str = None, temperature: float = 0.7, top_p: float = None, frequency_penalty: float = None, presence_penalty: float = None) -> list[str]:
     """
     Generates a course program (syllabus) using LangChain with Orchestrator Adapter.
     """
     
+    # Pass params via constructor
     model = OrchestratorChatModel(
         orchestrator_url=ORCHESTRATOR_URL,
-        origin_service="md-api-secao"
+        origin_service="md-api-secao",
+        temperature=temperature,
+        top_p=top_p,
+        frequency_penalty=frequency_penalty,
+        presence_penalty=presence_penalty
     )
     
     parser = JsonOutputParser(pydantic_object=SyllabusOutput)
@@ -25,7 +30,10 @@ def generate_syllabus_ai(course_name: str, course_desc: str, competencies: list[
     # Format competencies text to string
     comp_text = "\n".join([f"- {c.get('name')}" for c in competencies])
 
-    template = """
+    # If system_prompt is provided, we use it to override the default "System" instructions
+    # OR we set it as a SystemMessage.
+    
+    default_template = """
     Você é um especialista pedagógico do SENAC.
     Analise o seguinte curso e suas competências associadas:
 
@@ -43,25 +51,51 @@ def generate_syllabus_ai(course_name: str, course_desc: str, competencies: list[
     
     {format_instructions}
     """
+    
+    from langchain_core.messages import SystemMessage, HumanMessage
 
-    prompt = PromptTemplate(
-        template=template,
-        input_variables=["course_name", "course_desc", "comp_text"],
-        partial_variables={"format_instructions": parser.get_format_instructions()}
-    )
+    if system_prompt:
+        # If user provides system prompt, we use strictly that as SystemMessage
+        # And keep the task data in UserMessage
+        # But we need to ensure {format_instructions} is handled.
+        
+        # Strategy: Use the user provided system prompt as the "Persona/System"
+        # and keep the task structure.
+        
+        messages = [
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=f"CURSO: {course_name}\nDESCRIÇÃO: {course_desc}\nCOMPETÊNCIAS: {comp_text}\n\n{parser.get_format_instructions()}")
+        ]
+        
+        chain = model | parser
+        
+        try:
+            result = chain.invoke(messages)
+            return result.get("topics", [])
+        except Exception as e:
+            print(f"[AI SERVICE] Error generating syllabus (custom prompt): {str(e)}")
+            return []
 
-    chain = prompt | model | parser
+    else:
+        # Default legacy flow with PromptTemplate
+        prompt = PromptTemplate(
+            template=default_template,
+            input_variables=["course_name", "course_desc", "comp_text"],
+            partial_variables={"format_instructions": parser.get_format_instructions()}
+        )
 
-    try:
-        result = chain.invoke({
-            "course_name": course_name,
-            "course_desc": course_desc,
-            "comp_text": comp_text
-        })
-        return result.get("topics", [])
-    except Exception as e:
-        print(f"[AI SERVICE] Error generating syllabus: {str(e)}")
-        return []
+        chain = prompt | model | parser
+
+        try:
+            result = chain.invoke({
+                "course_name": course_name,
+                "course_desc": course_desc,
+                "comp_text": comp_text
+            })
+            return result.get("topics", [])
+        except Exception as e:
+            print(f"[AI SERVICE] Error generating syllabus: {str(e)}")
+            return []
 
 def generate_full_structure(objetivo: str, publico: str, nivel: str) -> AgentOutput:
     """

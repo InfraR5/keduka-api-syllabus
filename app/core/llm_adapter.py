@@ -13,6 +13,10 @@ class OrchestratorChatModel(BaseChatModel):
     """
     orchestrator_url: str = Field(description="URL of the AI Orchestrator")
     origin_service: str = Field(description="Name of the service calling the orchestrator")
+    temperature: Optional[float] = None
+    top_p: Optional[float] = None
+    frequency_penalty: Optional[float] = None
+    presence_penalty: Optional[float] = None
     
     @property
     def _llm_type(self) -> str:
@@ -25,12 +29,18 @@ class OrchestratorChatModel(BaseChatModel):
         run_manager: Optional[CallbackManagerForLLMRun] = None,
         **kwargs: Any,
     ) -> ChatResult:
-        # 1. Convert Messages to Single Prompt (Orchestrator simplistic interface)
-        # In a more advanced version, Orchestrator could accept messages[]
+        # 1. Convert Messages to Single Prompt & System Prompt
         prompt_parts = []
+        system_prompt = None
+        
         for m in messages:
             if isinstance(m, SystemMessage):
-                prompt_parts.append(f"System: {m.content}")
+                # If we have multiple system messages, join them or pick last? 
+                # Orchestrator prefers one. We'll join them if multiple.
+                if system_prompt:
+                    system_prompt += "\n" + m.content
+                else:
+                    system_prompt = m.content
             elif isinstance(m, HumanMessage):
                 prompt_parts.append(f"User: {m.content}")
             elif isinstance(m, AIMessage):
@@ -41,9 +51,15 @@ class OrchestratorChatModel(BaseChatModel):
         full_prompt = "\n\n".join(prompt_parts)
 
         # 2. Prepare Payload
+        # Priority: kwargs (bind) > self.field > default
         payload = {
             "origin": self.origin_service,
             "prompt": full_prompt,
+            "system_prompt": system_prompt,
+            "temperature": kwargs.get("temperature", self.temperature if self.temperature is not None else 0.7),
+            "top_p": kwargs.get("top_p", self.top_p),
+            "frequency_penalty": kwargs.get("frequency_penalty", self.frequency_penalty),
+            "presence_penalty": kwargs.get("presence_penalty", self.presence_penalty),
             "max_steps": kwargs.get("max_steps", 5),
             "max_tokens": kwargs.get("max_tokens", 4000)
         }

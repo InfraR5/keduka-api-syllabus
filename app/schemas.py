@@ -3,6 +3,11 @@ from pydantic import BaseModel
 
 class CourseRequest(BaseModel):
     course_id: int
+    system_prompt: Optional[str] = None
+    temperature: Optional[float] = 0.7
+    top_p: Optional[float] = None
+    frequency_penalty: Optional[float] = None
+    presence_penalty: Optional[float] = None
 
 class Competency(BaseModel):
     id: int
